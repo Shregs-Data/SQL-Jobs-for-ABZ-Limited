@@ -40,7 +40,9 @@ WITH DateSeries AS (
         d.date
     FROM LOANS l
     CROSS JOIN generate_series(l.disbursement_date, l.disbursement_date + INTERVAL '60 days', INTERVAL '1 day') d(date)
-),
+), -- This is to generate the date for over 60 days from the day a loan was disbursed
+
+
 PaymentSummary AS (
     SELECT
         loan_id,
@@ -49,9 +51,11 @@ PaymentSummary AS (
         MAX(CASE WHEN type = 'repayment' THEN payment_timestamp END) AS latest_repayment_date
     FROM PAYMENTS
     GROUP BY loan_id, DATE(payment_timestamp)
-)
+) -- This cte is checking the amount paid. If a loan is paid, then it calculates the total amount paid and also the date it was paid
+
+
 SELECT
-    ds.date,
+    ds.date, -- This is the final query that answers the question
     ds.user_id,
     ds.loan_id,
     ds.total_amount_disbursed,
@@ -59,12 +63,12 @@ SELECT
         SELECT SUM(ps.total_repaid)
         FROM PaymentSummary ps
         WHERE ps.loan_id = ds.loan_id AND ps.payment_date <= ds.date
-    ), 0) AS total_outstanding_amount,
+    ), 0) AS total_outstanding_amount, -- This is calculating the total outstanding amount, i.e Amount disbursed - Amount repaid
     (
-        SELECT MAX(ps.latest_repayment_date)
+        SELECT MAX(ps.latest_repayment_date) -- This is calculating the latest repayment date
         FROM PaymentSummary ps
         WHERE ps.loan_id = ds.loan_id AND ps.payment_date <= ds.date
     ) AS latest_repayment_date
-	INTO loans_and_repmyt_summary
+	INTO loans_and_repmyt_summary -- This is saving the report/table into a new file. You can remove this if you want.
 FROM DateSeries ds
 ORDER BY ds.date, ds.user_id, ds.loan_id;
